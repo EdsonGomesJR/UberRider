@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "409877746590",
+    "firebase_url": "https://uberrider-da73f.firebaseio.com",
+    "project_id": "uberrider-da73f",
+    "storage_bucket": "uberrider-da73f.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:409877746590:android:c909ad4f421c791b637c8f",
+        "android_client_info": {
+          "package_name": "com.edson.uberrider"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "409877746590-aqtok4qcmppqie21hp8mdd6o0v6rdhe3.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.edson.uberrider",
+            "certificate_hash": "3046484e6b0252693c0159f686b18daa44b8ca6b"
+          }
+        },
+        {
+          "client_id": "409877746590-koknj034vrf99uehddo574kkop1v7be0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCTt2SXnOh1MGDJVzLDpTeOUgQWviID7qc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "409877746590-koknj034vrf99uehddo574kkop1v7be0.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
