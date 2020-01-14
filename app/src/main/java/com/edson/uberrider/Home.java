@@ -5,9 +5,10 @@ import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.Bundle;
 
+import com.edson.uberrider.Helper.CustomInfoWindow;
 import com.firebase.geofire.GeoFire;
 import com.firebase.geofire.GeoLocation;
-import com.github.glomadrian.materialanimatedswitch.MaterialAnimatedSwitch;
+
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
@@ -17,6 +18,7 @@ import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
@@ -48,6 +50,8 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 
 import android.view.Menu;
+import android.widget.Button;
+import android.widget.ImageView;
 
 public class Home extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener,
         OnMapReadyCallback {
@@ -62,10 +66,15 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
     private static int UPDATE_INTERVAL = 5000;
     private static int FATEST_INTERVAL = 3000;
     private static int DISPLACEMENT = 10;
+    Button btnPickupRequest;
     DatabaseReference ref;
     GeoFire geoFire;
     Marker mUserMarker;
-    MaterialAnimatedSwitch location_switch;
+
+
+    //bottom sheet
+    ImageView imgExpandable;
+    BottomSheetRiderFragment mBottomSheet;
 
     private LocationRequest mLocationRequest;
     private Location mLastLocation;
@@ -74,45 +83,45 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
 
     /**
      * Posting my solution as an answer in case it helps anyone else.
-     *
+     * <p>
      * I got it working by declaring a LocationCallback as a member variable and then initialising (or re-initialising) it in each method that requires it...
-     *
+     * <p>
      * public void getCurrentLocationUpdates(final UserLocationCallback callback){
-     *         if (mIsReceivingUpdates){
-     *             callback.onFailedRequest("Device is already receiving updates");
-     *             return;
-     *         }
-     *
-     *         // Set up the LocationCallback for the request
-     *         mLocationCallback = new LocationCallback()
-     *         {
-     *             @Override
-     *             public void onLocationResult(LocationResult locationResult){
-     *                 if (locationResult != null){
-     *                     callback.onLocationResult(locationResult.getLastLocation());
-     *                 } else {
-     *                     callback.onFailedRequest("Location request returned null");
-     *                 }
-     *             }
-     *         };
-     *
-     *         // Start the request
-     *         mLocationClient.requestLocationUpdates(mLocationRequest, mLocationCallback, null);
-     *         // Update the request state flag
-     *         mIsReceivingUpdates = true;
-     *     }
-     * I check at the beginning of the method whether or not location updates are already being received and get out early if so. This prevents duplicate (and thus unstoppable) location update requests being initiated.
-     *
-     * Calling the stopLocationUpdates (below for reference) method now works as it should.
-     *
-     * public void stopLocationUpdates(){
-     *
-     *     mLocationClient.removeLocationUpdates(mLocationCallback);
-     *     mIsReceivingUpdates = false;
-     *     Log.i(TAG, "Location updates removed");
-     *
+     * if (mIsReceivingUpdates){
+     * callback.onFailedRequest("Device is already receiving updates");
+     * return;
      * }
+     * <p>
+     * // Set up the LocationCallback for the request
+     * mLocationCallback = new LocationCallback()
+     * {
+     *
      * @param savedInstanceState
+     * @Override public void onLocationResult(LocationResult locationResult){
+     * if (locationResult != null){
+     * callback.onLocationResult(locationResult.getLastLocation());
+     * } else {
+     * callback.onFailedRequest("Location request returned null");
+     * }
+     * }
+     * };
+     * <p>
+     * // Start the request
+     * mLocationClient.requestLocationUpdates(mLocationRequest, mLocationCallback, null);
+     * // Update the request state flag
+     * mIsReceivingUpdates = true;
+     * }
+     * I check at the beginning of the method whether or not location updates are already being received and get out early if so. This prevents duplicate (and thus unstoppable) location update requests being initiated.
+     * <p>
+     * Calling the stopLocationUpdates (below for reference) method now works as it should.
+     * <p>
+     * public void stopLocationUpdates(){
+     * <p>
+     * mLocationClient.removeLocationUpdates(mLocationCallback);
+     * mIsReceivingUpdates = false;
+     * Log.i(TAG, "Location updates removed");
+     * <p>
+     * }
      */
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -154,7 +163,60 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
         ref = FirebaseDatabase.getInstance().getReference("Drivers");
         geoFire = new GeoFire(ref);
 
+        //init view
+        imgExpandable = findViewById(R.id.imgExpandable);
+        mBottomSheet = (BottomSheetRiderFragment) BottomSheetRiderFragment.newInstance("Rider bottom sheet");
+
+        imgExpandable.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                mBottomSheet.show(getSupportFragmentManager(), mBottomSheet.getTag());
+            }
+        });
+
+        btnPickupRequest = findViewById(R.id.btnPickupRequest);
+        btnPickupRequest.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                requestPickupHere(FirebaseAuth.getInstance().getCurrentUser().getUid());
+            }
+        });
+
         setUpLocation();
+    }
+
+    private void requestPickupHere(String uid) {
+
+        DatabaseReference dbRequest = FirebaseDatabase.getInstance().getReference("PickupRequest");
+        GeoFire mGeoFire = new GeoFire(dbRequest);
+        mGeoFire.setLocation(uid, new GeoLocation(mLastLocation.getLatitude(), mLastLocation.getLongitude()));
+
+        if (mUserMarker.isVisible())
+            mUserMarker.remove();
+
+        //add new Marker
+        mUserMarker = mMap.addMarker(new MarkerOptions()
+                .title("Pickup Here")
+                .snippet("")
+                .position(new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude()))
+                .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_RED)));
+
+        mUserMarker.showInfoWindow();
+        btnPickupRequest.setText("Getting your DRIVER....");
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        fusedLocationProviderClient.removeLocationUpdates(locationCallback);
+        Log.d("STOP", "onStop:  Parou o app");
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        fusedLocationProviderClient.removeLocationUpdates(locationCallback);
+
     }
 
     @Override
@@ -286,6 +348,9 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
     public void onMapReady(GoogleMap googleMap) {
 
         mMap = googleMap;
+        mMap.getUiSettings().setZoomControlsEnabled(true);
+        mMap.getUiSettings().setZoomGesturesEnabled(true);
+        mMap.setInfoWindowAdapter(new CustomInfoWindow(this));
     }
 
     @Override
