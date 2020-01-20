@@ -7,7 +7,12 @@ import android.os.Bundle;
 
 import com.edson.uberrider.Common.Common;
 import com.edson.uberrider.Helper.CustomInfoWindow;
+import com.edson.uberrider.Model.FCMResponse;
+import com.edson.uberrider.Model.Notification;
 import com.edson.uberrider.Model.Rider;
+import com.edson.uberrider.Model.Sender;
+import com.edson.uberrider.Model.Token;
+import com.edson.uberrider.Remote.IFCMService;
 import com.firebase.geofire.GeoFire;
 import com.firebase.geofire.GeoLocation;
 
@@ -27,7 +32,6 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.tasks.OnSuccessListener;
-import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.snackbar.Snackbar;
 
 import android.os.Looper;
@@ -49,6 +53,8 @@ import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
+import com.google.firebase.iid.FirebaseInstanceId;
+import com.google.gson.Gson;
 
 import androidx.drawerlayout.widget.DrawerLayout;
 
@@ -59,6 +65,10 @@ import android.view.Menu;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.Toast;
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 public class Home extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener,
         OnMapReadyCallback {
@@ -83,6 +93,9 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
     int radius = 1; // 1km
     int distance = 1; // 3km
     private static final int LIMIT = 3;
+
+    //send alert
+    IFCMService mService;
 
 
     //bottom sheet
@@ -144,6 +157,8 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
+        mService = Common.getFCMService();
+
 
         DrawerLayout drawer = findViewById(R.id.drawer_layout);
         NavigationView navigationView = findViewById(R.id.nav_view);
@@ -187,11 +202,74 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
         btnPickupRequest.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                requestPickupHere(FirebaseAuth.getInstance().getCurrentUser().getUid());
+
+                if(!isDriverFound)
+                    requestPickupHere(FirebaseAuth.getInstance().getCurrentUser().getUid());
+                else
+                    sendRequestToDriver(driverID);
             }
         });
 
         setUpLocation();
+        updateFirebaseToken();
+    }
+    private void updateFirebaseToken() {
+
+        FirebaseDatabase db = FirebaseDatabase.getInstance();
+        DatabaseReference tokens = db.getReference(Common.token_tbl);
+
+        Token token = new Token(FirebaseInstanceId.getInstance().getToken());
+        tokens.child(FirebaseAuth.getInstance().getCurrentUser().getUid())
+                .setValue(token);
+    }
+
+    private void sendRequestToDriver(String driverID) {
+
+        DatabaseReference tokens = FirebaseDatabase.getInstance().getReference(Common.token_tbl);
+
+        tokens.orderByKey().equalTo(driverID)
+                .addListenerForSingleValueEvent(new ValueEventListener() {
+                    @Override
+                    public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+                        for(DataSnapshot postSnapShot : dataSnapshot.getChildren())
+                        {
+                            Token token = postSnapShot.getValue(Token.class); //get token object drom database with key
+
+                            //make raw payload - convert latlng to json
+                            String json_lat_lng = new Gson().toJson(new LatLng(mLastLocation.getLatitude(),mLastLocation.getLongitude()));
+                            Notification notification =  new Notification("Edson",json_lat_lng); //send it to driver app and we will deserialize it again
+                            Sender content = new Sender(token.getToken(), notification); //send this data to token
+
+
+                            mService.sendMessage(content)
+                                    .enqueue(new Callback<FCMResponse>() {
+                                        @Override
+                                        public void onResponse(Call<FCMResponse> call, Response<FCMResponse> response) {
+                                            if(response.body().success == 1)
+                                            {
+                                                Toast.makeText(Home.this, "Request sent", Toast.LENGTH_SHORT).show();
+                                                Log.d("EDS", "onResponse: RESQUEST FOI");
+                                            }
+                                            else
+                                                Toast.makeText(Home.this, "Failed !", Toast.LENGTH_SHORT).show();
+                                        }
+
+                                        @Override
+                                        public void onFailure(Call<FCMResponse> call, Throwable t) {
+
+                                            Log.e("ERROR", t.getMessage());
+
+                                        }
+                                    });
+
+                        }
+                    }
+
+                    @Override
+                    public void onCancelled(@NonNull DatabaseError databaseError) {
+
+                    }
+                });
     }
 
     private void requestPickupHere(String uid) {
@@ -269,14 +347,13 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
     @Override
     protected void onStop() {
         super.onStop();
-        fusedLocationProviderClient.removeLocationUpdates(locationCallback);
-        Log.d("STOP", "onStop:  Parou o app");
+
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        fusedLocationProviderClient.removeLocationUpdates(locationCallback);
+
 
     }
 
