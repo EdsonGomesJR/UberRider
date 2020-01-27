@@ -97,6 +97,9 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
     //send alert
     IFCMService mService;
 
+    //Presence System
+    DatabaseReference driversAvaliable;
+
 
     //bottom sheet
     ImageView imgExpandable;
@@ -426,6 +429,24 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
 
                         if (mLastLocation != null) {
 
+                            //presence system
+                            driversAvaliable = FirebaseDatabase.getInstance().getReference(Common.driver_tbl);
+                            driversAvaliable.addValueEventListener(new ValueEventListener() {
+                                @Override
+                                public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+
+                                    //if have any change from drivers table, we will reload all drivers avaliable
+                                    loadAllAvaliableDrivers();
+
+                                }
+
+                                @Override
+                                public void onCancelled(@NonNull DatabaseError databaseError) {
+
+                                }
+                            });
+
+
                             final double latitude = mLastLocation.getLatitude();
                             final double longitude = mLastLocation.getLongitude();
 
@@ -453,6 +474,14 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
     }
 
     private void loadAllAvaliableDrivers() {
+
+        //First, we need delete all markers on map, including our  location marker and available drivers marker
+        mMap.clear();
+        //After that, just add our location again
+        mMap.addMarker(new MarkerOptions().position(new LatLng(mLastLocation.getLatitude(),mLastLocation.getLongitude()))
+        .title("You"));
+
+
         //load all avaliable Driver in distance 3km
 
         DatabaseReference driverLocation = FirebaseDatabase.getInstance().getReference(Common.driver_tbl);
