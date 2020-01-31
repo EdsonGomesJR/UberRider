@@ -240,7 +240,20 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
 
                             //make raw payload - convert latlng to json
                             String json_lat_lng = new Gson().toJson(new LatLng(mLastLocation.getLatitude(),mLastLocation.getLongitude()));
-                            Notification notification =  new Notification("Edson",json_lat_lng); //send it to driver app and we will deserialize it again
+                            String riderToken = FirebaseInstanceId.getInstance().getToken(); // possivel erro pois está depreciado
+                            Log.d("riderToken", "onDataChange: " + riderToken);
+                            /** Caso dê erro utilizar esse método
+                             * FirebaseInstanceId.getInstance().getInstanceId().addOnSuccessListener( new OnSuccessListener<InstanceIdResult>() {
+                             *                 @Override
+                             *                 public void onSuccess(InstanceIdResult instanceIdResult) {
+                             *                       String deviceToken = instanceIdResult.getToken();
+                             *                       // Do whatever you want with your token now
+                             *                       // i.e. store it on SharedPreferences or DB
+                             *                       // or directly send it to server
+                             *                 }
+                             * });
+                             */
+                            Notification notification =  new Notification(riderToken, json_lat_lng); //send it to driver app and we will deserialize it again
                             Sender content = new Sender(token.getToken(), notification); //send this data to token
 
 
