@@ -13,14 +13,15 @@ import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 
 public class BottomSheetRiderFragment  extends BottomSheetDialogFragment {
 
-    String mTag;
+    String mLocation, mDestination;
 
-    public static BottomSheetDialogFragment newInstance(String tag)
+    public static BottomSheetDialogFragment newInstance(String location, String destination)
     {
 
         BottomSheetDialogFragment f = new BottomSheetRiderFragment();
         Bundle args = new Bundle();
-        args.putString("TAG",tag);
+        args.putString("location",location);
+        args.putString("destination",destination);
         f.setArguments(args);
         return f;
 
@@ -30,7 +31,8 @@ public class BottomSheetRiderFragment  extends BottomSheetDialogFragment {
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        mTag = getArguments().getString("TAG");
+        mLocation = getArguments().getString("location");
+        mDestination = getArguments().getString("destination");
     }
 
     @Nullable
