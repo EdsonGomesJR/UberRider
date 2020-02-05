@@ -555,12 +555,12 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
 
     }
 
-    private void loadAllAvaliableDrivers() {
+    private void loadAllAvaliableDrivers(LatLng location) {
 
         //First, we need delete all markers on map, including our  location marker and available drivers marker
         mMap.clear();
         //After that, just add our location again
-        mMap.addMarker(new MarkerOptions().position(new LatLng(mLastLocation.getLatitude(),mLastLocation.getLongitude()))
+        mMap.addMarker(new MarkerOptions().position(location)
         .title("You"));
 
 
@@ -569,7 +569,7 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
         DatabaseReference driverLocation = FirebaseDatabase.getInstance().getReference(Common.driver_tbl);
         GeoFire gf = new GeoFire(driverLocation);
 
-        GeoQuery geoQuery = gf.queryAtLocation(new GeoLocation(mLastLocation.getLatitude(), mLastLocation.getLongitude()), radius);
+        GeoQuery geoQuery = gf.queryAtLocation(new GeoLocation(location.latitude, location.longitude), radius);
         geoQuery.removeAllListeners();
 
         geoQuery.addGeoQueryEventListener(new GeoQueryEventListener() {
