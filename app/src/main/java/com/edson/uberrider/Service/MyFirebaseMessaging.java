@@ -35,7 +35,6 @@ public class MyFirebaseMessaging extends FirebaseMessagingService {
             //Because this is outside of main thread, so if want to  run Toast, you'll need to create a Handler to do that
             //choose Handler from android.os
 
-
             Handler handler = new Handler(Looper.getMainLooper());
             handler.post(new Runnable() {
                 @Override
@@ -44,7 +43,8 @@ public class MyFirebaseMessaging extends FirebaseMessagingService {
                     Toast.makeText(MyFirebaseMessaging.this, "" + remoteMessage.getNotification().getBody(), Toast.LENGTH_SHORT).show();
                 }
             });
-        } else if (remoteMessage.getNotification().getTitle().equals("Arrived")) {
+        }
+        else if (remoteMessage.getNotification().getTitle().equals("Arrived")) {
 
                 showArrivedNotification(remoteMessage.getNotification().getBody());
                 }

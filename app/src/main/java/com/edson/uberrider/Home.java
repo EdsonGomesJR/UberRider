@@ -25,7 +25,6 @@ import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.places.ui.PlaceAutocompleteFragment;
-import com.google.android.gms.location.places.ui.PlaceSelectionListener;
 import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
@@ -33,12 +32,20 @@ import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.libraries.places.api.Places;
+import com.google.android.libraries.places.api.model.AutocompletePrediction;
+import com.google.android.libraries.places.api.model.AutocompleteSessionToken;
 import com.google.android.libraries.places.api.model.Place;
+import com.google.android.libraries.places.api.model.RectangularBounds;
+import com.google.android.libraries.places.api.model.TypeFilter;
+import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest;
+import com.google.android.libraries.places.api.net.PlacesClient;
 import com.google.android.libraries.places.widget.AutocompleteSupportFragment;
+import com.google.android.libraries.places.widget.listener.PlaceSelectionListener;
 import com.google.android.material.snackbar.Snackbar;
 
 import android.os.Looper;
@@ -62,6 +69,7 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.iid.FirebaseInstanceId;
 import com.google.gson.Gson;
+import com.google.maps.android.SphericalUtil;
 
 import androidx.drawerlayout.widget.DrawerLayout;
 
@@ -74,6 +82,8 @@ import android.widget.ImageView;
 import android.widget.Toast;
 
 import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -84,6 +94,8 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
 
     private AppBarConfiguration mAppBarConfiguration;
     SupportMapFragment mapFragment;
+
+    private StringBuilder mResult;
 
     //Location
     private GoogleMap mMap;
@@ -120,6 +132,12 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
     FusedLocationProviderClient fusedLocationProviderClient;
 
     AutocompleteSupportFragment place_location, place_destination;
+    PlacesClient placesClient;
+    List<Place.Field> placeFields = Arrays.asList(Place.Field.ADDRESS, Place.Field.NAME,
+            Place.Field.ID, Place.Field.LAT_LNG);
+
+    FindAutocompletePredictionsRequest typeFilter;
+
 
     String mPlaceLocation, mPlaceDestination;
 
@@ -170,11 +188,12 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_home);
 
+        initPlaces();
+        setUpPlaceAutoComplete();
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
         mService = Common.getFCMService();
-        Places.initialize(getApplicationContext(), getResources().getString(R.string.google_direction_api));
 
 
         DrawerLayout drawer = findViewById(R.id.drawer_layout);
@@ -213,30 +232,36 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
             @Override
             public void onClick(View v) {
 
-                if(!isDriverFound)
+                if (!isDriverFound)
                     requestPickupHere(FirebaseAuth.getInstance().getCurrentUser().getUid());
                 else
                     sendRequestToDriver(driverID);
             }
         });
 
-        //places api
 
-        if (!Places.isInitialized()) {
 
-            Places.initialize(getApplicationContext(), getResources().getString(R.string.google_direction_api));
-        }
+
+
+        //events
+
+
+        setUpLocation();
+        updateFirebaseToken();
+    }
+
+    private void setUpPlaceAutoComplete() {
 
         //initialize the AutocompleteSupportFragment
 
-        AutocompleteSupportFragment place_location = (AutocompleteSupportFragment) getSupportFragmentManager()
+        place_location = (AutocompleteSupportFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.place_location);
-        place_location.setPlaceFields(Arrays.asList(com.google.android.libraries.places.api.model.Place.Field.ID, com.google.android.libraries.places.api.model.Place.Field.NAME, com.google.android.libraries.places.api.model.Place.Field.ADDRESS, Place.Field.LAT_LNG));
 
-        place_location.setOnPlaceSelectedListener(new com.google.android.libraries.places.widget.listener.PlaceSelectionListener() {
+        place_location.setPlaceFields(placeFields);
+        place_location.setOnPlaceSelectedListener(new PlaceSelectionListener() {
             @Override
-            public void onPlaceSelected(@NonNull com.google.android.libraries.places.api.model.Place place) {
-                mPlaceLocation = place.getAddress().toString();
+            public void onPlaceSelected(@NonNull Place place) {
+                mPlaceLocation = place.getAddress();
                 //Remove old marker
                 mMap.clear();
 
@@ -246,7 +271,7 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
                         .icon(BitmapDescriptorFactory.defaultMarker())
                         .title("Pickup Here"));
 
-                mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(place.getLatLng(),15.0f));
+                mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(place.getLatLng(), 15.0f));
             }
 
             @Override
@@ -254,16 +279,14 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
 
             }
         });
-        AutocompleteSupportFragment place_destination = (AutocompleteSupportFragment) getSupportFragmentManager()
+
+        place_destination = (AutocompleteSupportFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.place_destination);
-
-        place_destination.setPlaceFields(Arrays.asList(com.google.android.libraries.places.api.model.Place.Field.ID, com.google.android.libraries.places.api.model.Place.Field.NAME, com.google.android.libraries.places.api.model.Place.Field.ADDRESS,Place.Field.LAT_LNG));
-
-        place_destination.setOnPlaceSelectedListener(new com.google.android.libraries.places.widget.listener.PlaceSelectionListener() {
+        place_destination.setPlaceFields(placeFields);
+        place_destination.setOnPlaceSelectedListener(new PlaceSelectionListener() {
             @Override
-            public void onPlaceSelected(@NonNull com.google.android.libraries.places.api.model.Place place) {
-
-                mPlaceDestination = place.getAddress().toString();
+            public void onPlaceSelected(@NonNull Place place) {
+                mPlaceDestination = place.getAddress();
                 mMap.addMarker(new MarkerOptions().position(place.getLatLng())
                         .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE)));
                 mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(place.getLatLng(),15.0f));
@@ -271,7 +294,6 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
                 //show info in bottom
                 BottomSheetRiderFragment mBottomSheet = (BottomSheetRiderFragment) BottomSheetRiderFragment.newInstance(mPlaceLocation,mPlaceDestination);
                 mBottomSheet.show(getSupportFragmentManager(),mBottomSheet.getTag());
-
             }
 
             @Override
@@ -281,10 +303,17 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
         });
 
 
-
-        setUpLocation();
-        updateFirebaseToken();
     }
+
+    private void initPlaces() {
+        //places api
+        if (!Places.isInitialized()) {
+
+            Places.initialize(getApplicationContext(), getResources().getString(R.string.google_direction_api));
+            placesClient = Places.createClient(this);
+        }
+    }
+
     private void updateFirebaseToken() {
 
         FirebaseDatabase db = FirebaseDatabase.getInstance();
@@ -303,12 +332,11 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
                 .addListenerForSingleValueEvent(new ValueEventListener() {
                     @Override
                     public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-                        for(DataSnapshot postSnapShot : dataSnapshot.getChildren())
-                        {
+                        for (DataSnapshot postSnapShot : dataSnapshot.getChildren()) {
                             Token token = postSnapShot.getValue(Token.class); //get token object drom database with key
 
                             //make raw payload - convert latlng to json
-                            String json_lat_lng = new Gson().toJson(new LatLng(mLastLocation.getLatitude(),mLastLocation.getLongitude()));
+                            String json_lat_lng = new Gson().toJson(new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude()));
                             String riderToken = FirebaseInstanceId.getInstance().getToken(); // possivel erro pois está depreciado
                             Log.d("riderToken", "onDataChange: " + riderToken);
                             /** Caso dê erro utilizar esse método
@@ -322,7 +350,7 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
                              *                 }
                              * });
                              */
-                            Notification notification =  new Notification(riderToken, json_lat_lng); //send it to driver app and we will deserialize it again
+                            Notification notification = new Notification(riderToken, json_lat_lng); //send it to driver app and we will deserialize it again
                             Sender content = new Sender(token.getToken(), notification); //send this data to token
 
 
@@ -330,12 +358,10 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
                                     .enqueue(new Callback<FCMResponse>() {
                                         @Override
                                         public void onResponse(Call<FCMResponse> call, Response<FCMResponse> response) {
-                                            if(response.body().success == 1)
-                                            {
+                                            if (response.body().success == 1) {
                                                 Toast.makeText(Home.this, "Request sent", Toast.LENGTH_SHORT).show();
                                                 Log.d("EDS", "onResponse: RESQUEST FOI");
-                                            }
-                                            else
+                                            } else
                                                 Toast.makeText(Home.this, "Failed !", Toast.LENGTH_SHORT).show();
                                         }
 
@@ -396,7 +422,7 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
                     isDriverFound = true;
                     driverID = key;
                     btnPickupRequest.setText("CALL DRIVER");
-                    Toast.makeText(Home.this, " " + key, Toast.LENGTH_SHORT).show();
+                    //Toast.makeText(Home.this, " " + key, Toast.LENGTH_SHORT).show();
 
                 }
 
@@ -415,10 +441,15 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
             @Override
             public void onGeoQueryReady() {
                 //if still not found driver, increase distance
-                if (!isDriverFound) {
+                if (!isDriverFound && radius < LIMIT) {
 
                     radius++;
                     findDriver();
+                } else {
+
+                    Toast.makeText(Home.this, "No avaliable driver near you!", Toast.LENGTH_SHORT).show();
+                    btnPickupRequest.setText("REQUEST PICKUP");
+
                 }
             }
 
@@ -506,10 +537,51 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
         fusedLocationProviderClient.getLastLocation()
                 .addOnSuccessListener(new OnSuccessListener<Location>() {
                     @Override
-                    public void onSuccess(Location location) {
+                    public void onSuccess(final Location location) {
                         mLastLocation = location;
 
                         if (mLastLocation != null) {
+
+                            AutocompleteSessionToken token = AutocompleteSessionToken.newInstance();
+                            //create LatLng from mLastLocation and this is the center point
+                            LatLng center = new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude());
+
+                            //Distance in metters
+                            //heading 0 is northSide, 90 is east, 180 is south and 270 is west
+                            //base on compact
+                            LatLng northSide = SphericalUtil.computeOffset(center, 100000, 0);
+                            LatLng southSide = SphericalUtil.computeOffset(center, 100000, 180);
+
+                            LatLngBounds bounds = LatLngBounds.builder()
+                                    .include(northSide)
+                                    .include(southSide)
+                                    .build();
+                            RectangularBounds rectbonds = RectangularBounds.newInstance(bounds);
+
+                        place_location.setLocationBias(rectbonds);
+                        place_location.setCountry("br");
+                        place_location.setTypeFilter(TypeFilter.ADDRESS);
+                        //place_location.setTypeFilter(TypeFilter.REGIONS);
+
+                        place_destination.setLocationBias(rectbonds);
+                        place_destination.setCountry("br");
+                        place_destination.setTypeFilter(TypeFilter.ADDRESS);
+
+                        FindAutocompletePredictionsRequest request = FindAutocompletePredictionsRequest.builder()
+                                    .setLocationBias(rectbonds)
+                                .setCountry("br")
+                                .setSessionToken(token)
+                                .setTypeFilter(TypeFilter.ADDRESS)
+                                    .build();
+
+/**                        placesClient.findAutocompletePredictions(request).addOnSuccessListener(response -> {
+                            mResult = new StringBuilder();
+                           for(AutocompletePrediction prediction : response.getAutocompletePredictions()){
+
+                               prediction.getFullText(null).toString();
+                           }
+                        });*/
+
 
                             //presence system
                             driversAvaliable = FirebaseDatabase.getInstance().getReference(Common.driver_tbl);
@@ -518,7 +590,7 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
                                 public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
 
                                     //if have any change from drivers table, we will reload all drivers avaliable
-                                    loadAllAvaliableDrivers();
+                                    loadAllAvaliableDrivers(new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude()));
 
                                 }
 
@@ -543,7 +615,7 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
                             //mover a camera para essa posição
                             mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(latitude, longitude), 15.0f));
 
-                            loadAllAvaliableDrivers();
+                            loadAllAvaliableDrivers(new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude()));
 
                         } else {
 
@@ -555,13 +627,13 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
 
     }
 
-    private void loadAllAvaliableDrivers(LatLng location) {
+    private void loadAllAvaliableDrivers(final LatLng location) {
 
         //First, we need delete all markers on map, including our  location marker and available drivers marker
         mMap.clear();
         //After that, just add our location again
         mMap.addMarker(new MarkerOptions().position(location)
-        .title("You"));
+                .title("You"));
 
 
         //load all avaliable Driver in distance 3km
@@ -569,7 +641,7 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
         DatabaseReference driverLocation = FirebaseDatabase.getInstance().getReference(Common.driver_tbl);
         GeoFire gf = new GeoFire(driverLocation);
 
-        GeoQuery geoQuery = gf.queryAtLocation(new GeoLocation(location.latitude, location.longitude), radius);
+        GeoQuery geoQuery = gf.queryAtLocation(new GeoLocation(location.latitude, location.longitude), distance);
         geoQuery.removeAllListeners();
 
         geoQuery.addGeoQueryEventListener(new GeoQueryEventListener() {
@@ -594,7 +666,7 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
                                         .position(new LatLng(location.latitude, location.longitude))
                                         .flat(true)
                                         .title(rider.getName())
-                                        .snippet("Phone  : "+ rider.getPhone())
+                                        .snippet("Phone  : " + rider.getPhone())
                                         .icon(BitmapDescriptorFactory.fromResource(R.drawable.car)));
 
                             }
@@ -622,7 +694,7 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
                 if (distance <= LIMIT) //distance just find for 3km
                 {
                     distance++;
-                    loadAllAvaliableDrivers();
+                    loadAllAvaliableDrivers(location);
                 }
 
             }

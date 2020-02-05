@@ -18,6 +18,10 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
+    compileOptions {
+        sourceCompatibility = 1.8
+        targetCompatibility = 1.8
+    }
 }
 
 dependencies {
@@ -76,7 +80,7 @@ dependencies {
     //-----A material Switch with icon animations and color transitions-----\\
     implementation 'com.github.glomadrian:MaterialAnimatedSwitch:1.1@aar'
 
-
+    implementation 'com.google.maps.android:android-maps-utils:0.5+'
 }
 
 apply plugin: 'com.google.gms.google-services'
