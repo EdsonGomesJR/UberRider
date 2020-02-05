@@ -18,11 +18,15 @@ import com.firebase.geofire.GeoLocation;
 
 import com.firebase.geofire.GeoQuery;
 import com.firebase.geofire.GeoQueryEventListener;
+import com.google.android.gms.common.api.Status;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.location.places.ui.PlaceAutocompleteFragment;
+import com.google.android.gms.location.places.ui.PlaceSelectionListener;
+import com.google.android.gms.maps.CameraUpdate;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
@@ -32,6 +36,9 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.android.libraries.places.api.Places;
+import com.google.android.libraries.places.api.model.Place;
+import com.google.android.libraries.places.widget.AutocompleteSupportFragment;
 import com.google.android.material.snackbar.Snackbar;
 
 import android.os.Looper;
@@ -65,6 +72,8 @@ import android.view.Menu;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.Toast;
+
+import java.util.Arrays;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -109,6 +118,10 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
     private Location mLastLocation;
     LocationCallback locationCallback;
     FusedLocationProviderClient fusedLocationProviderClient;
+
+    AutocompleteSupportFragment place_location, place_destination;
+
+    String mPlaceLocation, mPlaceDestination;
 
     /**
      * Posting my solution as an answer in case it helps anyone else.
@@ -161,6 +174,7 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
         setSupportActionBar(toolbar);
 
         mService = Common.getFCMService();
+        Places.initialize(getApplicationContext(), getResources().getString(R.string.google_direction_api));
 
 
         DrawerLayout drawer = findViewById(R.id.drawer_layout);
@@ -192,14 +206,7 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
 
         //init view
         imgExpandable = findViewById(R.id.imgExpandable);
-        mBottomSheet = (BottomSheetRiderFragment) BottomSheetRiderFragment.newInstance("Rider bottom sheet");
 
-        imgExpandable.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                mBottomSheet.show(getSupportFragmentManager(), mBottomSheet.getTag());
-            }
-        });
 
         btnPickupRequest = findViewById(R.id.btnPickupRequest);
         btnPickupRequest.setOnClickListener(new View.OnClickListener() {
@@ -212,6 +219,68 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
                     sendRequestToDriver(driverID);
             }
         });
+
+        //places api
+
+        if (!Places.isInitialized()) {
+
+            Places.initialize(getApplicationContext(), getResources().getString(R.string.google_direction_api));
+        }
+
+        //initialize the AutocompleteSupportFragment
+
+        AutocompleteSupportFragment place_location = (AutocompleteSupportFragment) getSupportFragmentManager()
+                .findFragmentById(R.id.place_location);
+        place_location.setPlaceFields(Arrays.asList(com.google.android.libraries.places.api.model.Place.Field.ID, com.google.android.libraries.places.api.model.Place.Field.NAME, com.google.android.libraries.places.api.model.Place.Field.ADDRESS, Place.Field.LAT_LNG));
+
+        place_location.setOnPlaceSelectedListener(new com.google.android.libraries.places.widget.listener.PlaceSelectionListener() {
+            @Override
+            public void onPlaceSelected(@NonNull com.google.android.libraries.places.api.model.Place place) {
+                mPlaceLocation = place.getAddress().toString();
+                //Remove old marker
+                mMap.clear();
+
+                //add marker at new location
+
+                mUserMarker = mMap.addMarker(new MarkerOptions().position(place.getLatLng())
+                        .icon(BitmapDescriptorFactory.defaultMarker())
+                        .title("Pickup Here"));
+
+                mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(place.getLatLng(),15.0f));
+            }
+
+            @Override
+            public void onError(@NonNull Status status) {
+
+            }
+        });
+        AutocompleteSupportFragment place_destination = (AutocompleteSupportFragment) getSupportFragmentManager()
+                .findFragmentById(R.id.place_destination);
+
+        place_destination.setPlaceFields(Arrays.asList(com.google.android.libraries.places.api.model.Place.Field.ID, com.google.android.libraries.places.api.model.Place.Field.NAME, com.google.android.libraries.places.api.model.Place.Field.ADDRESS,Place.Field.LAT_LNG));
+
+        place_destination.setOnPlaceSelectedListener(new com.google.android.libraries.places.widget.listener.PlaceSelectionListener() {
+            @Override
+            public void onPlaceSelected(@NonNull com.google.android.libraries.places.api.model.Place place) {
+
+                mPlaceDestination = place.getAddress().toString();
+                mMap.addMarker(new MarkerOptions().position(place.getLatLng())
+                        .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE)));
+                mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(place.getLatLng(),15.0f));
+
+                //show info in bottom
+                BottomSheetRiderFragment mBottomSheet = (BottomSheetRiderFragment) BottomSheetRiderFragment.newInstance(mPlaceLocation,mPlaceDestination);
+                mBottomSheet.show(getSupportFragmentManager(),mBottomSheet.getTag());
+
+            }
+
+            @Override
+            public void onError(@NonNull Status status) {
+
+            }
+        });
+
+
 
         setUpLocation();
         updateFirebaseToken();
