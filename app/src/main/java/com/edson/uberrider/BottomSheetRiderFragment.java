@@ -1,28 +1,39 @@
 package com.edson.uberrider;
 
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageView;
 import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.edson.uberrider.Common.Common;
+import com.edson.uberrider.Remote.IGoogleAPI;
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment;
 
-public class BottomSheetRiderFragment  extends BottomSheetDialogFragment {
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+
+public class BottomSheetRiderFragment extends BottomSheetDialogFragment {
 
     String mLocation, mDestination;
+    TextView txtCalculate;
+    IGoogleAPI mService;
 
-    public static BottomSheetDialogFragment newInstance(String location, String destination)
-    {
+    public static BottomSheetDialogFragment newInstance(String location, String destination) {
 
         BottomSheetDialogFragment f = new BottomSheetRiderFragment();
         Bundle args = new Bundle();
-        args.putString("location",location);
-        args.putString("destination",destination);
+        args.putString("location", location);
+        args.putString("destination", destination);
         f.setArguments(args);
         return f;
 
@@ -40,17 +51,90 @@ public class BottomSheetRiderFragment  extends BottomSheetDialogFragment {
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
                              @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-       View view = inflater.inflate(R.layout.bottom_sheet_rider,container,false);
-       TextView txtLocation = view.findViewById(R.id.txtLocation);
-       TextView txtDestination = view.findViewById(R.id.txtDestination);
-       TextView txtCalculate = view.findViewById(R.id.txtCalculate);
+        View view = inflater.inflate(R.layout.bottom_sheet_rider, container, false);
+        TextView txtLocation = view.findViewById(R.id.txtLocation);
+        TextView txtDestination = view.findViewById(R.id.txtDestination);
+        txtCalculate = view.findViewById(R.id.txtCalculate);
 
 
-       //set data
+        mService = Common.getGoogleService();
+        getPrice(mLocation, mDestination);
+
+
+        //set data
         txtLocation.setText(mLocation);
         txtDestination.setText(mDestination);
 
 
-       return view;
+        return view;
+    }
+
+    private void getPrice(String mLocation, String mDestination) {
+
+        String requestUrl = null;
+        try {
+            requestUrl = "https://maps.googleapis.com/maps/api/directions/json?" +
+                    "mode=driving&"
+                    + "transit_routing_preference=less_driving&"
+                    + "origin=" + mLocation + "&"
+                    + "destination=" + mDestination + "&"
+                    + "key=" + getResources().getString(R.string.google_direction_api);
+            Log.e("LINK", requestUrl); // for debug
+
+            mService.getPath(requestUrl).enqueue(new Callback<String>() {
+                @Override
+                public void onResponse(Call<String> call, Response<String> response) {
+                    //get object
+
+                    JSONObject jsonObject = null;
+                    try {
+                        jsonObject = new JSONObject(response.body());
+                        JSONArray routes = jsonObject.getJSONArray("routes");
+
+                        JSONObject object = routes.getJSONObject(0);
+                        JSONArray legs = object.getJSONArray("legs");
+
+                        JSONObject legsObject = legs.getJSONObject(0);
+
+                        //get distance
+
+                        JSONObject distance = legsObject.getJSONObject("distance");
+                        String distance_text = distance.getString("text");
+
+                        //use regex to extract double from string
+                        //this regex will remove all text thats not digit
+                        Double distance_value = Double.parseDouble(distance_text.replaceAll("[^0-9\\\\.]+", ""));
+
+                        //get time
+
+                        JSONObject time = legsObject.getJSONObject("duration");
+                        String time_text = time.getString("text");
+
+                        Integer time_value = Integer.parseInt(time_text.replaceAll("\\D+", ""));
+
+                        String final_calculate = String.format("%s + %s = $%.2f", distance_text, time_text,
+                                Common.getPrice(distance_value, time_value));
+
+                        txtCalculate.setText(final_calculate);
+
+
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                    }
+
+
+                }
+
+                @Override
+                public void onFailure(Call<String> call, Throwable t) {
+
+                    Log.e("ERROR", t.getMessage());
+
+                }
+            });
+        } catch (Exception ex) {
+
+            ex.printStackTrace();
+        }
     }
 }
