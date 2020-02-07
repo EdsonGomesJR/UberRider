@@ -78,6 +78,7 @@ public class BottomSheetRiderFragment extends BottomSheetDialogFragment {
     private void getPrice(String mLocation, String mDestination) {
 
         String requestUrl = null;
+        //  https://maps.googleapis.com/maps/api/directions/json?mode=driving&transit_routing_preference=less_driving&origin=-23.204127,%20-45.853337&destination=-23.205229,%20-45.856794&key=AIzaSyDqCIADJSnH1KsyrWD1UPWWagUpWk9t4-U
         try {
             requestUrl = "https://maps.googleapis.com/maps/api/directions/json?" +
                     "mode=driving&"

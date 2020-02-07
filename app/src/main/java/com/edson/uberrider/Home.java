@@ -52,10 +52,8 @@ import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.libraries.places.api.Places;
-import com.google.android.libraries.places.api.model.AutocompleteSessionToken;
 import com.google.android.libraries.places.api.model.Place;
 import com.google.android.libraries.places.api.model.RectangularBounds;
-import com.google.android.libraries.places.api.model.TypeFilter;
 import com.google.android.libraries.places.api.net.FindAutocompletePredictionsRequest;
 import com.google.android.libraries.places.api.net.PlacesClient;
 import com.google.android.libraries.places.widget.AutocompleteSupportFragment;
@@ -532,7 +530,6 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
 
                         if (mLastLocation != null) {
 
-                            AutocompleteSessionToken token = AutocompleteSessionToken.newInstance();
                             //create LatLng from mLastLocation and this is the center point
                             LatLng center = new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude());
 
@@ -548,29 +545,29 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
                                     .build();
                             RectangularBounds rectbonds = RectangularBounds.newInstance(bounds);
 
-                        place_location.setLocationBias(rectbonds);
-                        place_location.setCountry("br");
-                        place_location.setTypeFilter(TypeFilter.ADDRESS);
-                        //place_location.setTypeFilter(TypeFilter.REGIONS);
+                            place_location.setLocationBias(rectbonds);
+                            place_location.setCountry("br");
+                            //  place_location.setTypeFilter(TypeFilter.ADDRESS);
 
-                        place_destination.setLocationBias(rectbonds);
-                        place_destination.setCountry("br");
-                        place_destination.setTypeFilter(TypeFilter.ADDRESS);
+                            place_destination.setLocationBias(rectbonds);
+                            place_destination.setCountry("br");
+                            //place_destination.setTypeFilter(TypeFilter.ADDRESS);
 
-                        FindAutocompletePredictionsRequest request = FindAutocompletePredictionsRequest.builder()
-                                    .setLocationBias(rectbonds)
-                                .setCountry("br")
-                                .setSessionToken(token)
-                                .setTypeFilter(TypeFilter.ADDRESS)
-                                    .build();
 
-/**                        placesClient.findAutocompletePredictions(request).addOnSuccessListener(response -> {
-                            mResult = new StringBuilder();
-                           for(AutocompletePrediction prediction : response.getAutocompletePredictions()){
+                            /**FindAutocompletePredictionsRequest request = FindAutocompletePredictionsRequest.builder()
+                             .setLocationBias(rectbonds)
+                             .setCountry("br")
+                             .setSessionToken(token)
+                             .setTypeFilter(TypeFilter.ADDRESS)
+                             .build();
 
-                               prediction.getFullText(null).toString();
-                           }
-                        });*/
+                             /**                        placesClient.findAutocompletePredictions(request).addOnSuccessListener(response -> {
+                             mResult = new StringBuilder();
+                             for(AutocompletePrediction prediction : response.getAutocompletePredictions()){
+
+                             prediction.getFullText(null).toString();
+                             }
+                             });*/
 
 
                             //presence system
@@ -738,14 +735,15 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
 
                 markerDestination = mMap.addMarker(new MarkerOptions().icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE))
                         .position(latLng)
-                        .title("Destination"));
+                        .title("Destination" + latLng.toString()));
 
-                mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 16.0f));
+                mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15.0f));
 
                 //show bottom sheet
 
-                BottomSheetRiderFragment mBottomSheet = (BottomSheetRiderFragment) BottomSheetRiderFragment.newInstance(String.format("%f,%f", mLastLocation.getLatitude(), mLastLocation.getLongitude()),
-                        String.format("%f,%f", latLng.latitude, latLng.longitude), true);
+                //%f no string format não convertia os valores.. estava dando msg de bug que deveria utilizar o Locale, mas com o %s funcionou
+                BottomSheetRiderFragment mBottomSheet = (BottomSheetRiderFragment) BottomSheetRiderFragment.newInstance(String.format("%s,%s", mLastLocation.getLatitude(), mLastLocation.getLongitude()),
+                        String.format("%s,%s", latLng.latitude, latLng.longitude), true);
                 mBottomSheet.show(getSupportFragmentManager(), mBottomSheet.getTag());
 
             }
