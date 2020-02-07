@@ -1,7 +1,9 @@
 package com.edson.uberrider.Common;
 
 import com.edson.uberrider.Remote.FCMClient;
+import com.edson.uberrider.Remote.GoogleMapAPI;
 import com.edson.uberrider.Remote.IFCMService;
+import com.edson.uberrider.Remote.IGoogleAPI;
 
 public class Common {
 
@@ -11,6 +13,7 @@ public class Common {
     public static final  String pickup_request_tbl = "PickupRequest";
     public static final String token_tbl = "Tokens";
     public static final String fcmURL = "https://fcm.googleapis.com";
+    public static final String googleAPIUrl = "https://maps.googleapis.com";
 
     public static double base_fare = 2.55;
     public static double time_rate = 0.35;
@@ -22,9 +25,13 @@ public class Common {
     }
 
 
-
     public static IFCMService getFCMService() {
 
         return FCMClient.getClient(fcmURL).create(IFCMService.class);
+    }
+
+    public static IGoogleAPI getGoogleService() {
+
+        return GoogleMapAPI.getClient(googleAPIUrl).create(IGoogleAPI.class);
     }
 }
