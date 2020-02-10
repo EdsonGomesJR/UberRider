@@ -2,6 +2,7 @@ package com.edson.uberrider;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
+import android.content.res.Resources;
 import android.location.Location;
 import android.os.Bundle;
 import android.os.Looper;
@@ -48,6 +49,7 @@ import com.google.android.gms.maps.SupportMapFragment;
 import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
+import com.google.android.gms.maps.model.MapStyleOptions;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.tasks.OnSuccessListener;
@@ -228,9 +230,6 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
         });
 
 
-
-
-
         //events
 
 
@@ -256,7 +255,7 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
                 //add marker at new location
 
                 mUserMarker = mMap.addMarker(new MarkerOptions().position(place.getLatLng())
-                        .icon(BitmapDescriptorFactory.defaultMarker())
+                        .icon(BitmapDescriptorFactory.fromResource(R.drawable.marker))
                         .title("Pickup Here"));
 
                 mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(place.getLatLng(), 15.0f));
@@ -276,12 +275,14 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
             public void onPlaceSelected(@NonNull Place place) {
                 mPlaceDestination = place.getAddress();
                 mMap.addMarker(new MarkerOptions().position(place.getLatLng())
-                        .icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE)));
-                mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(place.getLatLng(),15.0f));
+                        .icon(BitmapDescriptorFactory.fromResource(R.drawable.destination_marker))
+                        .title("Destination"));
+
+                mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(place.getLatLng(), 15.0f));
 
                 //show info in bottom
                 BottomSheetRiderFragment mBottomSheet = (BottomSheetRiderFragment) BottomSheetRiderFragment.newInstance(mPlaceLocation, mPlaceDestination, false);
-                mBottomSheet.show(getSupportFragmentManager(),mBottomSheet.getTag());
+                mBottomSheet.show(getSupportFragmentManager(), mBottomSheet.getTag());
             }
 
             @Override
@@ -592,16 +593,6 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
                             final double longitude = mLastLocation.getLongitude();
 
 
-                            if (mUserMarker != null)
-                                mUserMarker.remove(); //remove o marcador que ja esta
-                            mUserMarker = mMap.addMarker(new MarkerOptions()
-                                    .position(new LatLng(latitude, longitude))
-                                    .title("Você"));
-
-
-                            //mover a camera para essa posição
-                            mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(new LatLng(latitude, longitude), 15.0f));
-
                             loadAllAvaliableDrivers(new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude()));
 
                         } else {
@@ -616,11 +607,18 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
 
     private void loadAllAvaliableDrivers(final LatLng location) {
 
-        //First, we need delete all markers on map, including our  location marker and available drivers marker
+
+        //here we will clear all map  to delete old position of driver
+
         mMap.clear();
-        //After that, just add our location again
-        mMap.addMarker(new MarkerOptions().position(location)
-                .title("You"));
+        mUserMarker = mMap.addMarker(new MarkerOptions()
+                .icon(BitmapDescriptorFactory.fromResource(R.drawable.marker))
+                .position(location)
+                .title("Você"));
+
+
+        //mover a camera para essa posição
+        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(location, 15.0f));
 
 
         //load all avaliable Driver in distance 3km
@@ -719,6 +717,19 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
     @Override
     public void onMapReady(GoogleMap googleMap) {
 
+
+        try {
+
+            boolean isSuccess = googleMap.setMapStyle(
+                    MapStyleOptions.loadRawResourceStyle(this, R.raw.uber_style_map)
+            );
+
+            if (!isSuccess)
+                Log.e("ERROR", "map style load failed");
+        } catch (Resources.NotFoundException ex) {
+            ex.printStackTrace();
+        }
+
         mMap = googleMap;
         mMap.getUiSettings().setZoomControlsEnabled(true);
         mMap.getUiSettings().setZoomGesturesEnabled(true);
@@ -733,9 +744,9 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
                 if (markerDestination != null)
                     markerDestination.remove();
 
-                markerDestination = mMap.addMarker(new MarkerOptions().icon(BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_BLUE))
+                markerDestination = mMap.addMarker(new MarkerOptions().icon(BitmapDescriptorFactory.fromResource(R.drawable.destination_marker))
                         .position(latLng)
-                        .title("Destination" + latLng.toString()));
+                        .title("Destination"));
 
                 mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15.0f));
 
