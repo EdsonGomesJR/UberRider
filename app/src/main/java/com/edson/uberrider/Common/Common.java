@@ -15,9 +15,13 @@ public class Common {
     public static final String fcmURL = "https://fcm.googleapis.com";
     public static final String googleAPIUrl = "https://maps.googleapis.com";
 
+    public static boolean isDriverFound = false;
+    public static String driverID = "";
+
     public static double base_fare = 2.55;
     public static double time_rate = 0.35;
     public static double distance_rate = 1.75;
+    public static String rate_detail_tbl = "RateDetails"; // se não tiver esse nó no Firebase, ele será criado automaticamente
 
     public static double getPrice(double km, int min) {
 

@@ -204,7 +204,7 @@ public class MainActivity extends AppCompatActivity {
                             @Override
                             public void onSuccess(AuthResult authResult) {
                                 carregandoDialog.dismiss();
-                                startActivity(new Intent(MainActivity.this, Home .class));
+                                startActivity(new Intent(MainActivity.this, Home.class));
                                 finish();
 
                             }

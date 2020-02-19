@@ -99,8 +99,7 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
     GeoFire geoFire;
     Marker mUserMarker, markerDestination;
 
-    boolean isDriverFound = false;
-    String driverID = "";
+
     int radius = 1; // 1km
     int distance = 1; // 3km
     private static final int LIMIT = 3;
@@ -222,10 +221,10 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
             @Override
             public void onClick(View v) {
 
-                if (!isDriverFound)
+                if (!Common.isDriverFound)
                     requestPickupHere(FirebaseAuth.getInstance().getCurrentUser().getUid());
                 else
-                    sendRequestToDriver(driverID);
+                    sendRequestToDriver(Common.driverID);
             }
         });
 
@@ -407,9 +406,9 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
             public void onKeyEntered(String key, GeoLocation location) {
 
                 //if found
-                if (!isDriverFound) {
-                    isDriverFound = true;
-                    driverID = key;
+                if (!Common.isDriverFound) {
+                    Common.isDriverFound = true;
+                    Common.driverID = key;
                     btnPickupRequest.setText("CALL DRIVER");
                     //Toast.makeText(Home.this, " " + key, Toast.LENGTH_SHORT).show();
 
@@ -430,15 +429,21 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
             @Override
             public void onGeoQueryReady() {
                 //if still not found driver, increase distance
-                if (!isDriverFound && radius < LIMIT) {
+                if (!Common.isDriverFound && radius < LIMIT) {
 
                     radius++;
                     findDriver();
                 } else {
 
-                    Toast.makeText(Home.this, "No avaliable driver near you!", Toast.LENGTH_SHORT).show();
-                    btnPickupRequest.setText("REQUEST PICKUP");
+                    //há um pequeno erro aqui
+                    //apos encontrarmos o motorista que está mais proximo, essa mensagem ainda é mostrada
+                    //para consertar apenas adicione o if abaixo
 
+                    if (!Common.isDriverFound) {
+                        Toast.makeText(Home.this, "No avaliable driver near you!", Toast.LENGTH_SHORT).show();
+                        btnPickupRequest.setText("REQUEST PICKUP");
+                        geoQuery.removeAllListeners();
+                    }
                 }
             }
 
