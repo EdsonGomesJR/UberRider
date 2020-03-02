@@ -25,11 +25,15 @@ import com.google.android.gms.tasks.Task;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.firebase.auth.AuthResult;
 import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 import com.rengwuxian.materialedittext.MaterialEditText;
 
 import dmax.dialog.SpotsDialog;
+import io.paperdb.Paper;
 import uk.co.chrisjenx.calligraphy.CalligraphyConfig;
 import uk.co.chrisjenx.calligraphy.CalligraphyContextWrapper;
 
@@ -60,6 +64,9 @@ public class MainActivity extends AppCompatActivity {
                 .setFontAttrId(R.attr.fontPath)
                 .build());
         setContentView(R.layout.activity_main);
+
+        //init paperdb
+        Paper.init(this);
 
         //init Firebase
         auth = FirebaseAuth.getInstance();
@@ -95,6 +102,65 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+        //Auto Login system
+        String user = Paper.book().read(Common.user_field);
+        String pwd = Paper.book().read(Common.pwd_field);
+
+        if (user != null && pwd != null) {
+
+            if (!TextUtils.isEmpty((user)) &&
+                    !TextUtils.isEmpty((pwd))) {
+
+                autoLoging(user, pwd);
+
+            }
+
+        }
+
+
+    }
+
+    private void autoLoging(String user, String pwd) {
+
+
+        final SpotsDialog carregandoDialog = new SpotsDialog(MainActivity.this);
+        carregandoDialog.show();
+        //login
+        auth.signInWithEmailAndPassword(user, pwd)
+                .addOnSuccessListener(new OnSuccessListener<AuthResult>() {
+                    @Override
+                    public void onSuccess(AuthResult authResult) {
+                        carregandoDialog.dismiss();
+                        FirebaseDatabase.getInstance().getReference(Common.user_driver_tbl)
+                                .child(FirebaseAuth.getInstance().getCurrentUser().getUid())
+                                .addListenerForSingleValueEvent(new ValueEventListener() {
+                                    @Override
+                                    public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
+
+                                        startActivity(new Intent(MainActivity.this, Home.class));
+
+                                        finish();
+                                    }
+
+                                    @Override
+                                    public void onCancelled(@NonNull DatabaseError databaseError) {
+
+                                    }
+                                });
+
+
+                    }
+                }).addOnFailureListener(new OnFailureListener() {
+            @Override
+            public void onFailure(@NonNull Exception e) {
+                carregandoDialog.dismiss();
+
+                Snackbar.make(rootLayout, "Login Falhou: " + e.getMessage(), Snackbar.LENGTH_SHORT)
+                        .show();
+//ativando o botão de logar
+                btnLogar.setEnabled(true);
+            }
+        });
 
     }
 
@@ -204,6 +270,9 @@ public class MainActivity extends AppCompatActivity {
                             @Override
                             public void onSuccess(AuthResult authResult) {
                                 carregandoDialog.dismiss();
+                                //write values
+                                Paper.book().write(Common.user_field, edtMail.getText().toString());
+                                Paper.book().write(Common.pwd_field, edtSenha.getText().toString());
                                 startActivity(new Intent(MainActivity.this, Home.class));
                                 finish();
 

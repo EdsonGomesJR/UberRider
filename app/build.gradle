@@ -68,6 +68,10 @@ dependencies {
 
     implementation 'com.android.support:multidex:1.0.3'
 
+    //---paperdb---\\
+
+    implementation 'io.paperdb:paperdb:2.6'
+
     //---------------RETROFIT----------------------------\\
 
     implementation 'com.squareup.retrofit2:retrofit:2.3.0'

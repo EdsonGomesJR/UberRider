@@ -14,6 +14,10 @@ public class Common {
     public static final String token_tbl = "Tokens";
     public static final String fcmURL = "https://fcm.googleapis.com";
     public static final String googleAPIUrl = "https://maps.googleapis.com";
+    public static final String user_field = "rider_user"; //we need differente key with Driver App cuz we have the case: One Phone install both Driver and Rider app
+    public static final String pwd_field = "rider_pwd";
+
+
 
     public static boolean isDriverFound = false;
     public static String driverID = "";
@@ -22,6 +26,7 @@ public class Common {
     public static double time_rate = 0.35;
     public static double distance_rate = 1.75;
     public static String rate_detail_tbl = "RateDetails"; // se não tiver esse nó no Firebase, ele será criado automaticamente
+
 
     public static double getPrice(double km, int min) {
 
