@@ -1,6 +1,7 @@
 package com.edson.uberrider;
 
 import android.Manifest;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.location.Location;
@@ -26,8 +27,6 @@ import androidx.navigation.ui.NavigationUI;
 
 import com.edson.uberrider.Common.Common;
 import com.edson.uberrider.Helper.CustomInfoWindow;
-import com.edson.uberrider.Model.DataMessage;
-import com.edson.uberrider.Model.FCMResponse;
 import com.edson.uberrider.Model.Rider;
 import com.edson.uberrider.Model.Token;
 import com.edson.uberrider.Remote.IFCMService;
@@ -71,16 +70,10 @@ import com.google.firebase.iid.FirebaseInstanceId;
 import com.google.maps.android.SphericalUtil;
 
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
-
-import retrofit2.Call;
-import retrofit2.Callback;
-import retrofit2.Response;
 
 public class Home extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener,
-        OnMapReadyCallback {
+        OnMapReadyCallback, GoogleMap.OnInfoWindowClickListener {
 
     private AppBarConfiguration mAppBarConfiguration;
     SupportMapFragment mapFragment;
@@ -224,7 +217,7 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
                 if (!Common.isDriverFound)
                     requestPickupHere(FirebaseAuth.getInstance().getCurrentUser().getUid());
                 else
-                    sendRequestToDriver(Common.driverID);
+                    Common.sendRequestToDriver(Common.driverID, mService, getBaseContext(), mLastLocation);
             }
         });
 
@@ -312,68 +305,6 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
                 .setValue(token);
     }
 
-    private void sendRequestToDriver(String driverID) {
-
-        DatabaseReference tokens = FirebaseDatabase.getInstance().getReference(Common.token_tbl);
-
-        tokens.orderByKey().equalTo(driverID)
-                .addListenerForSingleValueEvent(new ValueEventListener() {
-                    @Override
-                    public void onDataChange(@NonNull DataSnapshot dataSnapshot) {
-                        for (DataSnapshot postSnapShot : dataSnapshot.getChildren()) {
-                            Token token = postSnapShot.getValue(Token.class); //get token object drom database with key
-
-                            //make raw payload - convert latlng to json
-
-                            String riderToken = FirebaseInstanceId.getInstance().getToken(); // possivel erro pois está depreciado
-                            Log.d("riderToken", "onDataChange: " + riderToken);
-                            /** Caso dê erro utilizar esse método
-                             * FirebaseInstanceId.getInstance().getInstanceId().addOnSuccessListener( new OnSuccessListener<InstanceIdResult>() {
-                             *                 @Override
-                             *                 public void onSuccess(InstanceIdResult instanceIdResult) {
-                             *                       String deviceToken = instanceIdResult.getToken();
-                             *                       // Do whatever you want with your token now
-                             *                       // i.e. store it on SharedPreferences or DB
-                             *                       // or directly send it to server
-                             *                 }
-                             * });
-                             */
-//                            Notification notification = new Notification(riderToken, json_lat_lng); //send it to driver app and we will deserialize it again
-//                            Sender content = new Sender(token.getToken(), notification); //send this data to token
-                            Map<String, String> content = new HashMap<>();
-                            content.put("customer", riderToken);
-                            content.put("lat", String.valueOf(mLastLocation.getLatitude()));
-                            content.put("lng", String.valueOf(mLastLocation.getLongitude()));
-                            DataMessage dataMessage = new DataMessage(token.getToken(), content);
-
-                            mService.sendMessage(dataMessage)
-                                    .enqueue(new Callback<FCMResponse>() {
-                                        @Override
-                                        public void onResponse(Call<FCMResponse> call, Response<FCMResponse> response) {
-                                            if (response.body().success == 1) {
-                                                Toast.makeText(Home.this, "Request sent", Toast.LENGTH_SHORT).show();
-                                                Log.d("EDS", "onResponse: RESQUEST FOI");
-                                            } else
-                                                Toast.makeText(Home.this, "Failed !", Toast.LENGTH_SHORT).show();
-                                        }
-
-                                        @Override
-                                        public void onFailure(Call<FCMResponse> call, Throwable t) {
-
-                                            Log.e("ERROR", t.getMessage());
-
-                                        }
-                                    });
-
-                        }
-                    }
-
-                    @Override
-                    public void onCancelled(@NonNull DatabaseError databaseError) {
-
-                    }
-                });
-    }
 
     private void requestPickupHere(String uid) {
 
@@ -495,12 +426,15 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
 
         if (ActivityCompat.checkSelfPermission(this,
                 Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
-                (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
+                (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
+                        ActivityCompat.checkSelfPermission(this, Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED
                 )) {
             //request Runtime permission
             ActivityCompat.requestPermissions(this, new String[]{
                             Manifest.permission.ACCESS_COARSE_LOCATION,
-                            Manifest.permission.ACCESS_FINE_LOCATION},
+                            Manifest.permission.ACCESS_FINE_LOCATION,
+                            Manifest.permission.CALL_PHONE},
+
                     MY_PERMISSION_REQUEST_CODE);
         } else {
 
@@ -660,7 +594,7 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
                                         .position(new LatLng(location.latitude, location.longitude))
                                         .flat(true)
                                         .title(rider.getName())
-                                        .snippet("Phone  : " + rider.getPhone())
+                                        .snippet("Driver ID  : " + dataSnapshot.getKey())
                                         .icon(BitmapDescriptorFactory.fromResource(R.drawable.car)));
 
                             }
@@ -768,10 +702,33 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
 
             }
         });
+
+        mMap.setOnInfoWindowClickListener(this);
     }
 
     @Override
     public boolean onNavigationItemSelected(@NonNull MenuItem menuItem) {
         return false;
+    }
+
+    @Override
+    public void onInfoWindowClick(Marker marker) {
+
+        //if marker info window is your location, dont apply this event
+
+        if (!marker.getTitle().equals("You")) {
+
+
+            //call to the new activity CallDriver
+            Intent intent = new Intent(Home.this, CallDriver.class);
+            //send info to the new activity
+            intent.putExtra("driverId", marker.getSnippet().replaceAll("\\D+", ""));
+            intent.putExtra("lat", mLastLocation.getLatitude());
+            intent.putExtra("lng", mLastLocation.getLongitude());
+            startActivity(intent);
+
+        }
+
+
     }
 }
