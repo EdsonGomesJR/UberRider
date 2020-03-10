@@ -26,10 +26,9 @@ import androidx.navigation.ui.NavigationUI;
 
 import com.edson.uberrider.Common.Common;
 import com.edson.uberrider.Helper.CustomInfoWindow;
+import com.edson.uberrider.Model.DataMessage;
 import com.edson.uberrider.Model.FCMResponse;
-import com.edson.uberrider.Model.Notification;
 import com.edson.uberrider.Model.Rider;
-import com.edson.uberrider.Model.Sender;
 import com.edson.uberrider.Model.Token;
 import com.edson.uberrider.Remote.IFCMService;
 import com.firebase.geofire.GeoFire;
@@ -69,11 +68,12 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 import com.google.firebase.iid.FirebaseInstanceId;
-import com.google.gson.Gson;
 import com.google.maps.android.SphericalUtil;
 
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -324,7 +324,7 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
                             Token token = postSnapShot.getValue(Token.class); //get token object drom database with key
 
                             //make raw payload - convert latlng to json
-                            String json_lat_lng = new Gson().toJson(new LatLng(mLastLocation.getLatitude(), mLastLocation.getLongitude()));
+
                             String riderToken = FirebaseInstanceId.getInstance().getToken(); // possivel erro pois está depreciado
                             Log.d("riderToken", "onDataChange: " + riderToken);
                             /** Caso dê erro utilizar esse método
@@ -338,11 +338,15 @@ public class Home extends AppCompatActivity implements NavigationView.OnNavigati
                              *                 }
                              * });
                              */
-                            Notification notification = new Notification(riderToken, json_lat_lng); //send it to driver app and we will deserialize it again
-                            Sender content = new Sender(token.getToken(), notification); //send this data to token
+//                            Notification notification = new Notification(riderToken, json_lat_lng); //send it to driver app and we will deserialize it again
+//                            Sender content = new Sender(token.getToken(), notification); //send this data to token
+                            Map<String, String> content = new HashMap<>();
+                            content.put("customer", riderToken);
+                            content.put("lat", String.valueOf(mLastLocation.getLatitude()));
+                            content.put("lng", String.valueOf(mLastLocation.getLongitude()));
+                            DataMessage dataMessage = new DataMessage(token.getToken(), content);
 
-
-                            mService.sendMessage(content)
+                            mService.sendMessage(dataMessage)
                                     .enqueue(new Callback<FCMResponse>() {
                                         @Override
                                         public void onResponse(Call<FCMResponse> call, Response<FCMResponse> response) {

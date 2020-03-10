@@ -23,6 +23,7 @@ import com.edson.uberrider.RateActivity;
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
 
+import java.util.Map;
 import java.util.Random;
 
 public class MyFirebaseMessaging extends FirebaseMessagingService {
@@ -32,30 +33,37 @@ public class MyFirebaseMessaging extends FirebaseMessagingService {
     public void onMessageReceived(final RemoteMessage remoteMessage) {
         super.onMessageReceived(remoteMessage);
 
-        if (remoteMessage.getNotification().getTitle().equals("Cancel")) {
+        if (remoteMessage.getData() != null) {
 
-            //Because this is outside of main thread, so if want to  run Toast, you'll need to create a Handler to do that
-            //choose Handler from android.os
+            Map<String, String> data = remoteMessage.getData();
+            String title = data.get("title");
+            String message = data.get("message");
 
-            Handler handler = new Handler(Looper.getMainLooper());
-            handler.post(new Runnable() {
-                @Override
-                public void run() {
+            if (title.equals("Cancel")) {
 
-                    Toast.makeText(MyFirebaseMessaging.this, "" + remoteMessage.getNotification().getBody(), Toast.LENGTH_SHORT).show();
+                //Because this is outside of main thread, so if want to  run Toast, you'll need to create a Handler to do that
+                //choose Handler from android.os
+
+                Handler handler = new Handler(Looper.getMainLooper());
+                handler.post(new Runnable() {
+                    @Override
+                    public void run() {
+
+                        Toast.makeText(MyFirebaseMessaging.this, message, Toast.LENGTH_SHORT).show();
+                    }
+                });
+            } else if (title.equals("Arrived")) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    showArrivedNotificationAPI26(message);
+                } else {
+
+                    showArrivedNotification(message);
                 }
-            });
-        } else if (remoteMessage.getNotification().getTitle().equals("Arrived")) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                showArrivedNotificationAPI26(remoteMessage.getNotification().getBody());
-            } else {
 
-                showArrivedNotification(remoteMessage.getNotification().getBody());
+            } else if (title.equals("DropOff")) {
+
+                openRateActivity(message);
             }
-
-        } else if (remoteMessage.getNotification().getTitle().equals("DropOff")) {
-
-            openRateActivity(remoteMessage.getNotification().getBody());
         }
     }
 
@@ -139,22 +147,22 @@ public class MyFirebaseMessaging extends FirebaseMessagingService {
 
     /**  private void showArrivedNotification(String body) {
 
-        //this method only works for api 25 and lower, for api 26+ i'll have to use Notification Channel
+     //this method only works for api 25 and lower, for api 26+ i'll have to use Notification Channel
 
-        PendingIntent contentIntent = PendingIntent.getActivity(getBaseContext(),
-                0,new Intent(), PendingIntent.FLAG_ONE_SHOT);
+     PendingIntent contentIntent = PendingIntent.getActivity(getBaseContext(),
+     0,new Intent(), PendingIntent.FLAG_ONE_SHOT);
 
-        NotificationCompat.Builder builder =  new NotificationCompat.Builder(getBaseContext());
+     NotificationCompat.Builder builder =  new NotificationCompat.Builder(getBaseContext());
 
-        builder.setAutoCancel(true)
-                .setDefaults(Notification.DEFAULT_LIGHTS | Notification.DEFAULT_SOUND)
-                .setWhen(System.currentTimeMillis())
-                .setSmallIcon(R.mipmap.ic_launcher_round)
-                .setContentTitle("Arrived")
-                .setContentText(body)
-                .setContentIntent(contentIntent);
-        NotificationManager manager = (NotificationManager) getBaseContext().getSystemService(Context.NOTIFICATION_SERVICE);
-        manager.notify(1,builder.build());
-    }*/
+     builder.setAutoCancel(true)
+     .setDefaults(Notification.DEFAULT_LIGHTS | Notification.DEFAULT_SOUND)
+     .setWhen(System.currentTimeMillis())
+     .setSmallIcon(R.mipmap.ic_launcher_round)
+     .setContentTitle("Arrived")
+     .setContentText(body)
+     .setContentIntent(contentIntent);
+     NotificationManager manager = (NotificationManager) getBaseContext().getSystemService(Context.NOTIFICATION_SERVICE);
+     manager.notify(1,builder.build());
+     }*/
 }
 
